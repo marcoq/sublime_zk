@@ -1401,6 +1401,20 @@ class ZkRefreshExpandedNoteCommand(sublime_plugin.TextCommand):
         self.view.replace(edit, complete_region, result_text)
 
 
+class ZKRandomNote(sublime_plugin.TextCommand):
+    """
+    Command to open random note
+    """
+    def run(self, edit):
+        window = sublime.active_window()
+        folder = os.path.dirname(window.project_file_name())
+        assert os.path.exists(folder)
+        results_file = ExternalSearch.external_file(folder)
+        import pdb; pdb.set_trace()
+        new_view = self.view.window().open_file(results_file)
+        return new_view
+
+
 class ZkFollowWikiLinkCommand(sublime_plugin.TextCommand):
     """
     Command that opens the note corresponding to a link the cursor is placed in
