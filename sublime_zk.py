@@ -2001,7 +2001,7 @@ class ZkShowAllTagsCommand(sublime_plugin.WindowCommand):
             'show_all_tags_in_new_pane')
 
 
-def run_show_all_notes_in_dir(theself, folder):
+def run_show_all_notes_in_dir(theself, folder, maxn=None):
         # # sanity check: do we have a project
         # if self.window.project_file_name():
         #     # yes we have a project!
@@ -2024,6 +2024,11 @@ def run_show_all_notes_in_dir(theself, folder):
         note_files = [
             f for f in note_files if
             note_id_matcher.match(os.path.basename(f))]
+        if maxn:
+            note_files = [
+                random.choice(note_files)
+                for i in range(maxn)
+            ]
         note_files_str = '\n'.join(note_files)
         ExternalSearch.externalize_note_links(
             note_files_str,
@@ -2558,3 +2563,42 @@ class ZkShowAllZettelnCommand(sublime_plugin.WindowCommand):
         settings = get_settings()
         folder = os.path.expanduser(settings.get('zetteln_base_dir'))
         return run_show_all_notes_in_dir(self, folder)
+
+
+class ZkShowFourRandomNotesCommand(sublime_plugin.WindowCommand):
+    """
+    Command to show a random note
+    """
+    # def on_done(self, selection):
+    #     """
+    #     Called when a note was selected from the overlay:
+    #     Open the selected note, if any.
+    #     """
+    #     if selection == -1:
+    #         return
+    #     the_file = os.path.join(self.folder, self.friend_note_files[selection])
+    #     self.view.window().open_file(the_file)
+
+    def run(self):
+        """
+        Try to select note link if present.
+        Search for notes as described above.
+        """
+        settings = get_settings()
+        folder = os.path.expanduser(settings.get('notes_base_dir'))
+        return run_show_all_notes_in_dir(self, folder, maxn=4)
+
+        settings = get_settings()
+        extension = settings.get('wiki_extension')
+        folder = get_path_for(self.view)
+        if not folder:
+            return
+        self.folder = folder
+        all_notes = ExternalSearch.search_in(
+            folder, '*', extension, tags=False)
+        random_note_files = random.choice(all_notes)
+        random_note_file = os.path.basename(random_note_files)
+        self.view.window().show_quick_panel(
+            [random_note_file, ],
+            self.on_done)
+        return
