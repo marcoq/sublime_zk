@@ -1846,7 +1846,7 @@ class ZkNewZettelCommand(sublime_plugin.WindowCommand):
         settings = get_settings()
         extension = settings.get('wiki_extension')
         id_in_title = settings.get('id_in_title')
-
+        folder = os.path.expanduser(settings.get('zetteln_base_dir'))
         new_id = timestamp()
         the_file = os.path.join(folder,  new_id + ' ' + input_text + extension)
         new_title = input_text
@@ -2602,3 +2602,75 @@ class ZkShowFourRandomNotesCommand(sublime_plugin.WindowCommand):
             [random_note_file, ],
             self.on_done)
         return
+
+
+class ZkNewNoteCommand(sublime_plugin.WindowCommand):
+    """
+    Command that prompts for a note title and then creates a note with that
+    title.
+    """
+    def run(self):
+        # try to find out if we come from a zettel
+        self.origin = None
+        self.o_title = None
+        self.insert_link = False
+        self.note_body = None
+        view = self.window.active_view()
+        suggested_title = ''
+        if view:
+            filn = view.file_name()
+            self.origin, self.o_title = get_note_id_and_title_of(view)
+            sel = view.sel()
+            if len(sel) >=1 and not sel[0].empty():
+                suggested_title = view.substr(sel[0])
+                if '\n' in suggested_title:
+                    lines = suggested_title.split('\n')
+                    suggested_title = lines[0]
+                    if len(lines) > 1:
+                        self.note_body = '\n'.join(lines[1:])
+                self.insert_link = True
+        self.window.show_input_panel('New Note:', suggested_title, self.on_done, None, None)
+
+    def on_done(self, input_text):
+        global PANE_FOR_OPENING_NOTES
+        # sanity check: do we have a project
+        if self.window.project_file_name():
+            # yes we have a project!
+            folder = os.path.dirname(self.window.project_file_name())
+        # sanity check: do we have an open folder
+        elif self.window.folders():
+            # yes we have an open folder!
+            folder = os.path.abspath(self.window.folders()[0])
+        else:
+            # no folder or project. try to create one
+            self.window.run_command('save_project_as')
+            # if after that we still have no project (user canceled save as)
+            folder = os.path.dirname(self.window.project_file_name())
+            if not folder:
+                # I don't know how to save_as the file so there's nothing sane I
+                # can do here. Non-obtrusively warn the user that this failed
+                self.window.status_message(
+                'Note cannot be created without a project or an open folder!')
+                return
+
+        settings = get_settings()
+        extension = settings.get('wiki_extension')
+        id_in_title = settings.get('id_in_title')
+
+        new_id = timestamp()
+        the_file = os.path.join(folder,  new_id + ' ' + input_text + extension)
+        new_title = input_text
+        if id_in_title:
+            new_title = new_id + ' ' + input_text
+
+        if self.insert_link:
+            prefix, postfix = get_link_pre_postfix()
+            link_txt = prefix + new_id + postfix
+            do_insert_title = settings.get('insert_links_with_titles', False)
+            if do_insert_title:
+                link_txt += ' ' + input_text
+            view = self.window.active_view()
+            view.run_command('zk_replace_selected_text', {'args': {'text': link_txt}})
+        create_note(the_file, new_title, self.origin, self.o_title, self.note_body)
+        new_view = self.window.open_file(the_file)
+        post_open_note(new_view, PANE_FOR_OPENING_NOTES)
