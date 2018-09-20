@@ -21,4 +21,6 @@
     { "caption": "ZK: Show all Zetteln", "command": "zk_show_all_zetteln" },
     { "caption": "ZK: Show four random Notez", "command": "zk_show_random_note2" },
     { "caption": "ZK: New Note", "command": "zk_new_note" },
+    { "caption": "ZK: Show Mimimmi", "command": "zk_show_mimimmi" },
+    { "caption": "ZK: Show Zetteln Tree", "command": "zk_show_zetteln_tree" }
 ]

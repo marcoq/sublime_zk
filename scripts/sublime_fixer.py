@@ -3,7 +3,7 @@
 import os
 import shutil
 
-folder = os.path.expanduser('~/Dropbox/notes/4.archives/apple_notes/')
+folder = os.path.expanduser('~/Dropbox/notes/ulysses/')
 f_codes = {}
 
 root_dirs_files = os.walk(folder)
