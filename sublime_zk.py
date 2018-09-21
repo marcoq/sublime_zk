@@ -21,6 +21,8 @@ import struct
 import subprocess
 import unicodedata
 
+import asciitree
+
 import sublime
 import sublime_plugin
 
@@ -2809,7 +2811,7 @@ class ZkShowZettelnTreeCommand(sublime_plugin.WindowCommand):
             note_files_str,
             dn,
             extensions,
-            prefix='# All Notes:')
+            prefix='# Zetteln Tree:')
         ef = ExternalSearch.external_file(folder)
         lines = open(
             ef, mode='r', encoding='utf-8', errors='ignore').read(
