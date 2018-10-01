@@ -21,10 +21,93 @@ import struct
 import subprocess
 import unicodedata
 
-import asciitree
-
 import sublime
 import sublime_plugin
+
+import sys
+if os.path.dirname(__file__) not in sys.path:
+    sys.path.append(os.path.dirname(__file__))
+import tmpx
+
+
+class ZkFindByContentCommand(sublime_plugin.WindowCommand):
+    """
+    Command that prompts for content
+    """
+    def run(self):
+        # try to find out if we come from a zettel
+        # self.origin = None
+        # self.o_title = None
+        # self.insert_link = False
+        # self.note_body = None
+        # view = self.window.active_view()
+        # suggested_title = ''
+        # if view:
+        #     self.origin, self.o_title = get_note_id_and_title_of(view)
+        #     sel = view.sel()
+        #     if len(sel) >= 1 and not sel[0].empty():
+        #         suggested_title = view.substr(sel[0])
+        #         if '\n' in suggested_title:
+        #             lines = suggested_title.split('\n')
+        #             suggested_title = lines[0]
+        #             if len(lines) > 1:
+        #                 self.note_body = '\n'.join(lines[1:])
+        #         self.insert_link = True
+        suggested_pattern = 'impossibile'
+        self.window.show_input_panel(
+            'Find Note:',
+            suggested_pattern,
+            self.on_done, None, None)
+
+    def on_done(self, input_text):
+        global PANE_FOR_OPENING_NOTES
+        # sanity check: do we have a project
+        if self.window.project_file_name():
+            # yes we have a project!
+            folder = os.path.dirname(self.window.project_file_name())
+        # sanity check: do we have an open folder
+        elif self.window.folders():
+            # yes we have an open folder!
+            folder = os.path.abspath(self.window.folders()[0])
+        else:
+            # no folder or project. try to create one
+            self.window.run_command('save_project_as')
+            # if after that we still have no project (user canceled save as)
+            folder = os.path.dirname(self.window.project_file_name())
+            if not folder:
+                # I don't know how to save_as the file
+                # so there's nothing sane I
+                # can do here. Non-obtrusively warn the user that this failed
+                self.window.status_message(
+                    'Internal Error!')
+                return
+
+        settings = get_settings()
+        folder = os.path.expanduser(settings.get('notes_base_dir'))
+        the_file = '/tmp/thefile.txt'
+        os.system('ag -il "%s" "%s" > "%s"' % (
+            input_text,
+            folder,
+            the_file))
+        results = list()
+        fp = open(the_file)
+        for fn in fp.readlines():
+            bfn = os.path.basename(fn)
+            try:
+                code = int(bfn.split(' ')[0])
+            except ValueError:
+                continue
+            title = ' '.join(bfn.split(' ')[1:])
+            results.append('[[%d]] %s' % (code, title))
+        fp.close()
+        fp = open(the_file, 'w')
+        fp.write(pprint.pformat(results))
+        fp.close()
+        # ExternalSearch.search_for_pattern(folder, input_text, extension='.md')
+
+        new_view = self.window.open_file(the_file)
+        post_open_note(new_view, PANE_FOR_OPENING_NOTES)
+        return new_view
 
 
 class ZkConstants(object):
@@ -45,8 +128,7 @@ class ZkConstants(object):
     def RE_TAGS():
         """ search for tags in files"""
         prefix = re.escape(ZkConstants.TAG_PREFIX)
-        return r"(?<=\s|^)(?<!`)(%s+([^%s\s.,\/!$%\^&\*;{}\[\]'\"=`~()<>”\\]|:[a-zA-Z0-9])+)" % (
-            prefix, prefix)
+        return r"(?<=\s|^)(?<!`)("+prefix+r"+([^%s\s.,\/!$%\^&\*;{}\[\]'\"=`~()<>”\\]|:[a-zA-Z0-9])+)"
 
     def RE_TAGS_PY():
         """ Same RE just for ST python's re module
@@ -642,6 +724,16 @@ class ExternalSearch:
     """
     SEARCH_COMMAND = 'ag'
     EXTERNALIZE = '.search_results.zkr'   # '' to skip
+
+    @staticmethod
+    def search_for_pattern(folder, pattern, extension):
+        output = ExternalSearch.search_in(
+            folder,
+            pattern,
+            extension,
+            tags=False
+            )
+        return output
 
     @staticmethod
     def search_all_tags(folder, extension):
@@ -2490,7 +2582,10 @@ class NoteLinkHighlighter(sublime_plugin.EventListener):
         for map in [self.note_links_for_view, self.scopes_for_view,
                     self.ignored_views]:
             if view.id() in map:
-                del map[view.id()]
+                try:
+                    del map[view.id()]
+                except IndexError as ex:
+                    print("IGNORING ex=%s" % str(ex))
 
     def update_note_link_highlights(self, view):
         """
@@ -2780,12 +2875,15 @@ class ZkShowZettelnTreeCommand(sublime_plugin.WindowCommand):
         note_files = get_all_notes_in_dir(folder, extensions)
 
         add_code = True
-        link_regexp = '\[\[([0-9]{14})\]\]'
+        link_regexp = '.*\[\[([0-9]{14})\]\].*'
 
         data = dict()
 
+        n_links = 0
         dn = folder
         for fn in note_files:
+            if not fn.endswith('.md'):
+                continue
             if os.path.isfile(
                     os.path.join(dn, fn)):
                 code = os.path.basename(fn.split(' ')[0])
@@ -2797,8 +2895,9 @@ class ZkShowZettelnTreeCommand(sublime_plugin.WindowCommand):
                     os.path.join(
                         dn, fn),
                     'r',
-                    encoding='utf-8')
+                    encoding='latin-1')
                 lines = fp.readlines()
+                fp.close()
                 for l in lines:
                     if re.match(link_regexp, l):
                         nl = ' '.join(l.split(' ')[1:])
@@ -2806,7 +2905,80 @@ class ZkShowZettelnTreeCommand(sublime_plugin.WindowCommand):
                         if add_code:
                             nl = code + ' ' + nl
                         data[nfn].append(nl)
-        note_files_str = pprint.pformat(data)
+                        n_links += 1
+        mean_links_per_zettel = n_links / float(len(note_files))
+        note_files_str = '# Zetteln Tree:\n\n- %d Zetteln\n- Total Links = %d/%d = %d%%\n- Mean Links = %f\n\n' % (
+            len(note_files),
+            n_links,
+            len(note_files)*(len(note_files)-1)/2.,
+            int(float(n_links)/(len(note_files)*(len(note_files)-1)/2.)*100),
+            mean_links_per_zettel) + pprint.pformat(
+                data,
+                indent=0,
+                width=20)
+        ExternalSearch.externalize_note_tree(
+            note_files_str,
+            dn,
+            extensions,
+            prefix='# Zetteln Tree:')
+        ef = ExternalSearch.external_file(folder)
+        lines = open(
+            ef, mode='r', encoding='utf-8', errors='ignore').read(
+                ).split('\n')
+        ExternalSearch.show_search_results(
+            self.window, folder, 'Notes', lines,
+            'show_all_tags_in_new_pane')
+
+
+class ZkShowUnlinkedZetteln(sublime_plugin.WindowCommand):
+    """
+    Command that creates a new view containing a tree view of all zetteln
+    """
+    def run(self):
+        settings = get_settings()
+        folder = os.path.expanduser(settings.get('zetteln_base_dir'))
+        extensions = settings.get('wiki_extensions')
+
+        note_files = get_all_notes_in_dir(folder, extensions)
+
+        add_code = True
+        link_regexp = '.*\[\[([0-9]{14})\]\].*'
+
+        links_and_notes = list()
+
+        n_links = 0
+        dn = folder
+        for fn in note_files:
+            n_local_links = 0
+            if not fn.endswith('.md'):
+                continue
+            if os.path.isfile(
+                    os.path.join(dn, fn)):
+                code = os.path.basename(fn.split(' ')[0])
+                nfn = ' '.join(fn.split(' ')[1:])
+                if add_code:
+                    nfn = '[[' + code + ']] ' + nfn
+                fp = open(
+                    os.path.join(
+                        dn, fn),
+                    'r',
+                    encoding='latin-1')
+                lines = fp.readlines()
+                fp.close()
+                for l in lines:
+                    if re.match(link_regexp, l):
+                        n_local_links += 1
+                        nl = ' '.join(l.split(' ')[1:])
+                        code = os.path.basename(l.split(' ')[0])
+                        if add_code:
+                            nl = code + ' ' + nl
+                        n_links += 1
+                links_and_notes.append((n_local_links, nfn))
+
+        note_files_str = '# Zetteln By Links:\n\n' + pprint.pformat(
+                sorted(links_and_notes),
+                indent=0,
+                width=20)
         ExternalSearch.externalize_note_tree(
             note_files_str,
             dn,

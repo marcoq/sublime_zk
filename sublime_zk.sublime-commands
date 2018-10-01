@@ -1,4 +1,5 @@
 [
+    { "caption": "ZK: Find by Content", "command": "zk_find_by_content" },
     { "caption": "ZK: New Zettel", "command": "zk_new_zettel" },
     { "caption": "ZK: Insert Citation", "command": "zk_insert_citation" },
     { "caption": "ZK: Pick tag from list", "command": "zk_tag_selector" },
@@ -22,5 +23,6 @@
     { "caption": "ZK: Show four random Notez", "command": "zk_show_random_note2" },
     { "caption": "ZK: New Note", "command": "zk_new_note" },
     { "caption": "ZK: Show Mimimmi", "command": "zk_show_mimimmi" },
-    { "caption": "ZK: Show Zetteln Tree", "command": "zk_show_zetteln_tree" }
+    { "caption": "ZK: Show Zetteln Tree", "command": "zk_show_zetteln_tree" },
+    { "caption": "ZK: Show Unlinked Zetteln", "command": "zk_show_unlinked_zetteln" }
 ]
