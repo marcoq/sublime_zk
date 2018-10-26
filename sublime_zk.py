@@ -2827,7 +2827,7 @@ class ZkNewNoteCommand(sublime_plugin.WindowCommand):
         settings = get_settings()
         extension = settings.get('wiki_extension')
         id_in_title = settings.get('id_in_title')
-
+        folder = os.path.expanduser(settings.get('notes_base_dir'))
         new_id = timestamp()
         the_file = os.path.join(folder,  new_id + ' ' + input_text + extension)
         new_title = input_text
