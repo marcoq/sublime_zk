@@ -731,8 +731,7 @@ class ExternalSearch:
             folder,
             pattern,
             extension,
-            tags=False
-            )
+            tags=False)
         return output
 
     @staticmethod
@@ -837,7 +836,8 @@ class ExternalSearch:
         else:
             args.extend(['-l', '--ackmate'])
         args.extend(['--silent', '-G', '.*\\' + extension, regexp, folder])
-        return ExternalSearch.run(args, folder)
+        out = ExternalSearch.run(args, folder)
+        print(123123, out)
 
     @staticmethod
     def run(args, folder):
@@ -861,6 +861,7 @@ class ExternalSearch:
         #     print('sublime_zk: search timed out:', ' '.join(args))
         if verbose:
             print(output.decode('utf-8', errors='ignore'))
+        print(756)
         return output.decode('utf-8', errors='ignore').replace('\r', '')
 
     @staticmethod
@@ -930,6 +931,7 @@ class ExternalSearch:
         or, if not available, in a new window
         """
         global PANE_FOR_OPENING_RESULTS
+        print(123154, ExternalSearch.EXTERNALIZE)
         if ExternalSearch.EXTERNALIZE:
             new_view = window.open_file(ExternalSearch.external_file(folder))
             window.set_view_index(new_view, PANE_FOR_OPENING_RESULTS, 0)
@@ -1211,12 +1213,13 @@ def note_file_by_id(note_id, folder, extension):
     if not note_id:
         return
     candidates = []
-    root_dirs_files = os.walk(folder)
-    for root, dirs, files in root_dirs_files:
-        for f in files:
-            if os.path.basename(f).startswith(note_id):
-                print('BINGO', os.path.join(root, f))
-                candidates.append(os.path.join(root, f))
+    for folder_ in [folder, os.path.expanduser("~/Box Sync/notes/1.projects".replace("/","\\"))]:
+        root_dirs_files = os.walk(folder_)
+        for root, dirs, files in root_dirs_files:
+            for f in files:
+                if os.path.basename(f).startswith(note_id):
+                    print('BINGO', os.path.join(root, f))
+                    candidates.append(os.path.join(root, f))
     if len(candidates) > 0:
         return candidates[0]
 
@@ -1241,9 +1244,12 @@ def get_all_notes_for(folder, extension):
     Return all files with extension in folder.
     """
     candidates = []
-    for root, dirs, files in os.walk(folder):
-        candidates.extend([
-            os.path.join(root, f) for f in files if f.endswith(extension)])
+    for folder_ in [folder, os.path.expanduser("~/Box Sync/notes/1.projects".replace("/","\\"))]:
+        assert os.path.isdir(folder_), "not a dir: " + folder_
+        for root, dirs, files in os.walk(folder_, followlinks=True):
+            candidates.extend([
+                os.path.join(root, f) for f in files if f.endswith(extension)])
+    print(837465, folder, candidates[::500])
     return sorted(candidates)
 
 
@@ -2069,6 +2075,7 @@ class ZkInsertWikiLinkCommand(sublime_plugin.TextCommand):
     Command that just inserts text, usually a link to a note.
     """
     def run(self, edit, args):
+        print(73829645, edit, args)
         self.view.insert(edit, self.view.sel()[0].begin(), args['text'])
 
 
@@ -2089,6 +2096,7 @@ class ZkTagSelectorCommand(sublime_plugin.TextCommand):
             {'args': {'text': tag_txt}})  # re-use of cmd
 
     def run(self, edit):
+        print(872364)
         folder = get_path_for(self.view)
         if not folder:
             return
@@ -2209,6 +2217,7 @@ class ZkMultiTagSearchCommand(sublime_plugin.WindowCommand):
     Prompts for search-spec, executes search, and shows results.
     """
     def run(self):
+        print(30984567)
         # sanity check: do we have a project
         if self.window.project_file_name():
             # yes we have a project!
